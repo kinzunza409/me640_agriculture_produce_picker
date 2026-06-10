@@ -1,0 +1,26 @@
+{
+    "name": "ROS2 Humble (Linux + NVIDIA, Wayland host)",
+    "initializeCommand": "xhost +local: >/dev/null 2>&1 || true",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "remoteUser": "root",
+    "runArgs": [
+        "--userns=keep-id:uid=0,gid=0",
+        "--hostname=ros",
+        "--device", "nvidia.com/gpu=all",   // 3060 for CUDA / compute
+        "--device", "/dev/dri",             // iGPU render node — rviz draws here
+        "--security-opt", "label=disable",
+        "-v", "${localEnv:XDG_RUNTIME_DIR}:${localEnv:XDG_RUNTIME_DIR}",
+        "-v", "/tmp/.X11-unix:/tmp/.X11-unix"
+    ],
+    "containerEnv": {
+        "ROS_DOMAIN_ID": "0",
+        "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "QT_QPA_PLATFORM": "xcb"             // OGRE is GLX/X11 — force X, not Wayland
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/project,type=bind",
+    "workspaceFolder": "/project"
+}

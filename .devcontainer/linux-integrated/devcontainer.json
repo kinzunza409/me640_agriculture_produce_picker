@@ -1,0 +1,26 @@
+{
+    "name": "ROS2 Humble (Ubuntu, no GPU)",
+    "initializeCommand": "xhost +local: >/dev/null 2>&1 || true",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "remoteUser": "root",
+    "runArgs": [
+        "--hostname=ros"
+        // optional iGPU accel: add  "--device", "/dev/dri"
+        // (omit on a headless/VM host with no /dev/dri)
+    ],
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+        "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind"
+    ],
+    "containerEnv": {
+        "ROS_DOMAIN_ID": "0",
+        "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "QT_QPA_PLATFORM": "xcb"
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/project,type=bind",
+    "workspaceFolder": "/project"
+}

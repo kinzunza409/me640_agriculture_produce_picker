@@ -1,0 +1,26 @@
+{
+    "name": "ROS2 Humble (Windows + WSLg)",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "remoteUser": "root",
+    "runArgs": [
+        "--hostname=ros"
+        // no --gpus all: integrated GPU comes through WSLg automatically
+    ],
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+        "source=/mnt/wslg,target=/mnt/wslg,type=bind"
+    ],
+    "containerEnv": {
+        "ROS_DOMAIN_ID": "0",
+        "DISPLAY": ":0",
+        "WAYLAND_DISPLAY": "wayland-0",
+        "XDG_RUNTIME_DIR": "/mnt/wslg/runtime-dir",
+        "PULSE_SERVER": "/mnt/wslg/PulseServer",
+        "QT_QPA_PLATFORM": "xcb"             // same GLX/X11 reason as Linux
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/project,type=bind",
+    "workspaceFolder": "/project"
+}
