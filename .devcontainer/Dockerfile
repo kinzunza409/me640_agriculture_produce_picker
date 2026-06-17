@@ -26,8 +26,17 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     add-apt-repository -y ppa:fish-shell/release-4 && \
     apt-get update && apt-get install -y fish
 
-# ROS2 dependencies
+# Clearpath Husky/A200 simulation dependencies
 RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    lsb-release \
+    && wget -qO - https://packages.osrfoundation.org/gazebo.gpg | gpg --dearmor -o /usr/share/keyrings/gazebo-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gazebo-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y \
+    ignition-fortress \
+    ros-humble-clearpath-simulator \
+    ros-humble-teleop-twist-keyboard \
     && rm -rf /var/lib/apt/lists/*
 
 # ROS2 settings
