@@ -141,6 +141,60 @@ rviz2                        # the rviz window should open
 If `glxgears` renders but `rviz2` fails to create a window, confirm
 `QT_QPA_PLATFORM=xcb` is set in your config — rviz's renderer requires X11, not Wayland.
 
+---
+
+## Husky/A200 Simulation
+
+Use the ROS 2 Humble Clearpath simulator stack for Husky/A200. The old `husky_gazebo` tutorial is ROS 1 (`roslaunch`); this repository uses `clearpath_gz` and an A200 `robot.yaml`.
+
+Checkout this branch before testing:
+
+```bash
+git checkout feature/husky-simulation
+```
+
+The Dev Container installs the verified simulation packages:
+
+- `ignition-fortress`
+- `ros-humble-clearpath-simulator`
+- `ros-humble-teleop-twist-keyboard`
+
+After changing `.devcontainer/Dockerfile`, rebuild the Dev Container before testing from a clean environment.
+
+The default robot config is stored in the repo at:
+
+```bash
+config/husky/a200_default.yaml
+```
+
+Start Gazebo and RViz from the first Dev Container terminal:
+
+```bash
+bash scripts/husky_sim.sh
+```
+
+The helper copies `config/husky/a200_default.yaml` to `~/clearpath/robot.yaml`, then launches `clearpath_gz` with RViz enabled. Pass normal launch arguments after the script name, for example:
+
+```bash
+RVIZ=false bash scripts/husky_sim.sh
+bash scripts/husky_sim.sh x:=1.0 y:=0.0 yaw:=1.57
+```
+
+Drive the robot from a second Dev Container terminal:
+
+```bash
+bash scripts/husky_teleop.sh
+```
+
+The simulated Husky uses the `/a200_0000` namespace. Check teleop output with:
+
+```bash
+ros2 topic echo /a200_0000/cmd_vel
+```
+
+Expected result: Gazebo shows the Husky/A200 model, RViz displays the robot state, and keyboard teleop moves the robot in simulation.
+
+IMU is not implemented in this branch yet. This branch only provides the Husky/A200 Gazebo base simulation, RViz visualization, and `/a200_0000/cmd_vel` teleop control path for future IMU integration.
 ## Git Workflow
 
 This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.
