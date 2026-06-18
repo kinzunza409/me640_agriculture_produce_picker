@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-NAMESPACE="${HUSKY_NAMESPACE:-/a200_0000}"
+set -eo pipefail
 
 source /opt/ros/humble/setup.bash
-exec ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r "__ns:=$NAMESPACE"
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r "__ns:=${1:-/a200_0000}"
