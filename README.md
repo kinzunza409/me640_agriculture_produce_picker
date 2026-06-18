@@ -1,3 +1,5 @@
+# Agricultural Produce Picker 🌱
+
 ## Host Setup
 
 This dev container ships several configurations. After cloning, open the folder in
@@ -193,3 +195,89 @@ ros2 topic echo /a200_0000/cmd_vel
 Expected result: Gazebo shows the Husky/A200 model, RViz displays the robot state, and keyboard teleop moves the robot in simulation.
 
 IMU is not implemented in this branch yet. This branch only provides the Husky/A200 Gazebo base simulation, RViz visualization, and `/a200_0000/cmd_vel` teleop control path for future IMU integration.
+## Git Workflow
+
+This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.
+
+### Why use separate branches?
+
+A branch is an isolated copy of the project where changes can be made without affecting anyone else. Committing directly to `main` means that every change, including unfinished or broken ones, is immediately visible to the other contributor and to anyone who pulls the latest code. In a ROS2 workspace this is especially risky, because a half-finished change to one package can stop the entire workspace from building with `colcon build`.
+
+Branches solve this by keeping work in progress separate until it is complete and verified. Consider a scenario where one contributor is writing a LiDAR driver node while the other is building an IMU filter node. Both start from the same commit on `main` and work independently:
+
+```
+                      o---o---o   feature/lidar-driver
+                     /         \
+main  o---o---o---o--+----------o---o
+                     \             /
+                      o---o---o---o   feature/imu-filter
+```
+
+While both branches are active, neither contributor sees the other's incomplete code, so a broken build on `feature/lidar-driver` cannot stop the other person from working. Each branch is merged into `main` only after its package builds and runs correctly. The result is that `main` always reflects a known-good state of the workspace, and the two efforts never interfere with each other until they are intentionally combined.
+
+### The everyday workflow
+
+Every new piece of work follows the same five steps:
+
+1. Sync `main` so the work starts from the latest version:
+   ```bash
+   git checkout main
+   git pull
+   ```
+2. Create a branch named after the package or task:
+   ```bash
+   git checkout -b feature/lidar-driver
+   ```
+3. Commit in small, focused chunks with clear messages:
+   ```bash
+   git add .
+   git commit -m "Add point cloud downsampling to lidar driver node"
+   ```
+4. Push the branch to GitHub:
+   ```bash
+   git push -u origin feature/lidar-driver
+   ```
+5. Open a Pull Request on GitHub to merge into `main`. Review the change, confirm it builds, then merge it and delete the branch.
+
+VS Code users can perform every step above from the Source Control panel (the branch icon in the sidebar). Pull, create branch, stage, commit, and push are all available as buttons, so no terminal is required.
+
+### Branch naming
+
+Branch names begin with a prefix that indicates the kind of work the branch contains, followed by a short description (for example `fix/odom-drift`). Consistent prefixes make it easy to see at a glance what each branch is for, and tools such as VS Code and GitHub group branches that share a prefix. Use one of the following four:
+
+- `feature/` for new functionality, such as a new node, launch file, or capability.
+- `fix/` for correcting something that is broken, like a crash or incorrect behavior.
+- `tuning/` for adjusting parameters without changing logic, such as PID gains, navigation costmap settings, or sensor calibration values.
+- `sandbox/` for throwaway exploration that may never be merged, such as testing a different path-planning approach before settling on one.
+
+### Rules that keep the workspace stable
+
+- Never commit directly to `main`. All changes go through a branch and a Pull Request.
+- Pull `main` before starting new work, so that new branches are based on current code rather than a stale version.
+- Do not merge into `main` if the change is broken or breaks other packages. Before merging, confirm that `colcon build` succeeds for the whole workspace, not only the package being edited. A change to a shared package, such as a custom message or interface definition, can break every package that depends on it.
+- Use one branch per task, and keep branches small and short-lived.
+- Coordinate which package each contributor is working on. The simplest way to avoid merge conflicts is to avoid editing the same files at the same time.
+
+### Writing good commit messages
+
+Keep messages short and describe what changed, phrased as an instruction:
+
+- Good: `Fix TF timestamp mismatch in odometry node`
+- Good: `Add launch file for navigation bringup`
+- Avoid: `stuff`, `fixes`, `wip`
+
+### Handling a merge conflict
+
+If GitHub reports that a Pull Request has conflicts, it means both branches changed the same lines, for example two edits to the same `CMakeLists.txt` or launch file. Pull `main` into the branch, open the flagged files, and choose which version to keep (VS Code marks each conflict with "Accept Current" and "Accept Incoming" options). After resolving and committing, rebuild the workspace with `colcon build` to confirm nothing broke, then complete the merge.
+
+### Keeping build artifacts out of the repository
+
+The repository includes a `.gitignore` file, which lists files and directories that git should never track. It is already configured to exclude the directories that colcon regenerates on every build (`build/`, `install/`, and `log/`), so these machine-specific outputs stay out of the repository and do not cause conflicts.
+
+The `.gitignore` only needs to be updated when a new kind of generated or local-only file starts appearing that should not be committed. For example, if a test session records rosbag files, the resulting `.db3` files can be large binary artifacts that do not belong in the repository. Adding a line such as the following keeps them out:
+
+```
+*.db3
+```
+
+The same applies to other generated content, such as Python `__pycache__/` directories or maps produced by SLAM. If git starts listing a file as a change that no one intends to commit, that file is usually a candidate for `.gitignore`.
