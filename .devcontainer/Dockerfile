@@ -3,13 +3,6 @@ FROM osrf/ros:humble-desktop-full
 # Install devcontainer tools
 RUN apt-get update && apt-get install -y \
     qtwayland5 \
-    clangd \
-    && rm -rf /var/lib/apt/lists/*
-
-# pyright language server
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g pyright \
     && rm -rf /var/lib/apt/lists/*
 
 # Quality of life packages (mesa-utils/x11-apps = glxinfo, glxgears, xeyes for GUI checks)
@@ -19,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     fzf \
     mesa-utils \
     x11-apps \
+    wget \
+    gnupg \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
 # Get newest version of fish
@@ -27,13 +23,9 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     apt-get update && apt-get install -y fish
 
 # Clearpath Husky/A200 simulation dependencies
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    lsb-release \
-    && wget -qO - https://packages.osrfoundation.org/gazebo.gpg | gpg --dearmor -o /usr/share/keyrings/gazebo-archive-keyring.gpg \
+RUN wget -qO - https://packages.osrfoundation.org/gazebo.gpg | gpg --dearmor -o /usr/share/keyrings/gazebo-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gazebo-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list \
-    && apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     ignition-fortress \
     ros-humble-clearpath-simulator \
     ros-humble-teleop-twist-keyboard \
