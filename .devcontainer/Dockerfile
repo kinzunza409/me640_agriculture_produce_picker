@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y \
 
 # ROS2 settings
 RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc
+RUN echo 'source /project/ros_ws/install/setup.bash' >> /root/.bashrc
 
 # Misc settings for container
 COPY setup.fish /tmp/setup.fish
