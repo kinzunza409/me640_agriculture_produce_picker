@@ -147,11 +147,6 @@ If `glxgears` renders but `rviz2` fails to create a window, confirm
 
 Use the ROS 2 Humble Clearpath simulator stack for Husky/A200. The old `husky_gazebo` tutorial is ROS 1 (`roslaunch`); this repository uses `clearpath_gz` and an A200 `robot.yaml`.
 
-Checkout this branch before testing:
-
-```bash
-git checkout feature/husky-simulation
-```
 
 The Dev Container installs the verified simulation packages:
 
@@ -164,26 +159,28 @@ After changing `.devcontainer/Dockerfile`, rebuild the Dev Container before test
 The default robot config is stored in the repo at:
 
 ```bash
-config/husky/a200_default.yaml
+/project/ros_ws/config/husky/a200_default.yaml
 ```
 
 Start Gazebo and RViz from the first Dev Container terminal:
 
 ```bash
-bash scripts/husky_sim.sh
+ros2 launch husky_gz default_sim.launch.py
 ```
 
-The helper copies `config/husky/a200_default.yaml` to `~/clearpath/robot.yaml`, then launches `clearpath_gz` with RViz enabled. Pass normal launch arguments after the script name, for example:
+The launch file copies `config/husky/a200_default.yaml` to `/tmp/clearpath/robot.yaml`, then launches `clearpath_gz` with RViz enabled. The following launch arguments are available:
 
-```bash
-RVIZ=false bash scripts/husky_sim.sh
-bash scripts/husky_sim.sh x:=1.0 y:=0.0 yaw:=1.57
+| Argument | Default | Description |
+|---|---|---|
+| `setup_path` | `/tmp/clearpath` | Directory where `robot.yaml` is written and read by `clearpath_gz` |
+| `robot_config` | `/project/ros_ws/config/husky/a200_default.yaml` | Source robot config to copy into `setup_path` |
+| `rviz` | `true` | Whether to launch RViz alongside the simulation |
 ```
 
 Drive the robot from a second Dev Container terminal:
 
 ```bash
-bash scripts/husky_teleop.sh
+bash /project/scripts/husky_teleop.sh
 ```
 
 The simulated Husky uses the `/a200_0000` namespace. Check teleop output with:
