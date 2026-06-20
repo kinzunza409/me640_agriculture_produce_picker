@@ -3,7 +3,7 @@
     "initializeCommand": "xhost +local: >/dev/null 2>&1 || true",
     "build": {
         "dockerfile": "../Dockerfile",
-        "context": ".."
+        "context": "../.."
     },
     "remoteUser": "root",
     "runArgs": [
