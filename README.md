@@ -145,53 +145,44 @@ If `glxgears` renders but `rviz2` fails to create a window, confirm
 
 ## Husky/A200 Simulation
 
-Use the ROS 2 Humble Clearpath simulator stack for Husky/A200. The old `husky_gazebo` tutorial is ROS 1 (`roslaunch`); this repository uses `clearpath_gz` and an A200 `robot.yaml`.
+Clearpath robot configs are automatically generated during the Docker build — no manual generation needed.
 
-
-The Dev Container installs the verified simulation packages:
-
+The following simulation packages are installed:
 - `ignition-fortress`
 - `ros-humble-clearpath-simulator`
 - `ros-humble-teleop-twist-keyboard`
 
-After changing `.devcontainer/Dockerfile`, rebuild the Dev Container before testing from a clean environment.
-
-The default robot config is stored in the repo at:
-
+### Robot Configuration
+Place robot YAML configs in:
 ```bash
-/project/ros_ws/config/husky/a200_default.yaml
+/project/ros_ws/config/clearpath/
 ```
+Each YAML is automatically picked up during the Docker build and generated into `~/clearpath/<config_name>/`.
 
-Start Gazebo and RViz from the first Dev Container terminal:
+> ⚠️ **After any change to a robot YAML config, you must rebuild the Dev Container for changes to take effect.**
 
+### Running the Simulation
+Start Gazebo and RViz:
 ```bash
 ros2 launch husky_gz default_sim.launch.py
 ```
 
-The launch file copies `config/husky/a200_default.yaml` to `/tmp/clearpath/robot.yaml`, then launches `clearpath_gz` with RViz enabled. The following launch arguments are available:
-
+Available launch arguments:
 | Argument | Default | Description |
 |---|---|---|
-| `setup_path` | `/tmp/clearpath` | Directory where `robot.yaml` is written and read by `clearpath_gz` |
-| `robot_config` | `/project/ros_ws/config/husky/a200_default.yaml` | Source robot config to copy into `setup_path` |
-| `rviz` | `true` | Whether to launch RViz alongside the simulation |
-```
+| `setup_path` | `/root/clearpath/a200_default` | Pre-generated config directory |
+| `rviz` | `true` | Whether to launch RViz |
+| `world` | `warehouse` | Gazebo world to load |
 
-Drive the robot from a second Dev Container terminal:
-
+### Teleoperation
+From a second terminal:
 ```bash
 bash /project/scripts/husky_teleop.sh
 ```
-
-The simulated Husky uses the `/a200_0000` namespace. Check teleop output with:
-
+Verify output with:
 ```bash
 ros2 topic echo /a200_0000/cmd_vel
 ```
-
-Expected result: Gazebo shows the Husky/A200 model, RViz displays the robot state, and keyboard teleop moves the robot in simulation.
-
-IMU is not implemented in this branch yet. This branch only provides the Husky/A200 Gazebo base simulation, RViz visualization, and `/a200_0000/cmd_vel` teleop control path for future IMU integration.
 ## Git Workflow
 
 This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.

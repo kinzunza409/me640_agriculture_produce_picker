@@ -2,7 +2,7 @@
     "name": "ROS2 Humble (Windows + WSLg)",
     "build": {
         "dockerfile": "../Dockerfile",
-        "context": ".."
+        "context": "../.."
     },
     "remoteUser": "root",
     "runArgs": [
