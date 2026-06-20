@@ -23,7 +23,7 @@ def setup_and_launch(context, *args, **kwargs):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument("setup_path", default_value="/root/clearpath/a200_default"),
+        DeclareLaunchArgument("setup_path", default_value="/root/clearpath/a200_gen3_default"),
         DeclareLaunchArgument("rviz", default_value="true"),
         DeclareLaunchArgument("world", default_value="warehouse"),
         OpaqueFunction(function=setup_and_launch),
