@@ -162,17 +162,43 @@ Each YAML is automatically picked up during the Docker build and generated into 
 > ⚠️ **After any change to a robot YAML config, you must rebuild the Dev Container for changes to take effect.**
 
 ### Running the Simulation
-Start Gazebo and RViz:
+Start Gazebo and RViz through the single project simulation entrypoint:
 ```bash
 ros2 launch husky_gz default_sim.launch.py
+```
+
+The default world is `rough_terrain`, a local SDF world that keeps a flat spawn
+area near `x=0` and starts the rough strips at `x=3`.
+
+To switch back to the Clearpath warehouse world:
+```bash
+ros2 launch husky_gz default_sim.launch.py world:=warehouse
+```
+
+To run without RViz:
+```bash
+ros2 launch husky_gz default_sim.launch.py rviz:=false
+```
+
+To override the robot spawn pose:
+```bash
+ros2 launch husky_gz default_sim.launch.py x:=0.0 y:=0.0 z:=0.3 yaw:=0.0
 ```
 
 Available launch arguments:
 | Argument | Default | Description |
 |---|---|---|
-| `setup_path` | `/root/clearpath/a200_default` | Pre-generated config directory |
+| `setup_path` | `/root/clearpath/a200_gen3_default` | Pre-generated config directory |
 | `rviz` | `true` | Whether to launch RViz |
-| `world` | `warehouse` | Gazebo world to load |
+| `world` | `rough_terrain` | Gazebo world to load by bare world name |
+| `x` | `0.0` | Robot spawn x position |
+| `y` | `0.0` | Robot spawn y position |
+| `z` | `0.3` | Robot spawn z position |
+| `yaw` | `0.0` | Robot spawn yaw |
+
+Keep future simulation features, such as IMU bag recording, PID tests, or terrain
+profiles, behind launch arguments on `default_sim.launch.py` instead of adding
+separate launch entrypoints.
 
 ### Teleoperation
 From a second terminal:
