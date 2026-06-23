@@ -50,6 +50,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'pid_pose_logger = husky_gz.pid_pose_logger:main',
+            'pid_bag_to_csv = husky_gz.pid_bag_to_csv:main',
         ],
     },
 )

@@ -196,9 +196,9 @@ Available launch arguments:
 | `z` | `0.3` | Robot spawn z position |
 | `yaw` | `0.0` | Robot spawn yaw |
 
-Keep future simulation features, such as IMU bag recording, PID tests, or terrain
-profiles, behind launch arguments on `default_sim.launch.py` instead of adding
-separate launch entrypoints.
+Keep `default_sim.launch.py` as the core simulation entrypoint. Workflow-specific
+launch files, such as data recording or analysis launch files, should include
+`default_sim.launch.py` instead of duplicating simulation setup.
 
 ### Teleoperation
 From a second terminal:
@@ -209,6 +209,61 @@ Verify output with:
 ```bash
 ros2 topic echo /a200_0000/cmd_vel
 ```
+
+### Recording PID Performance Data
+Use the PID performance recorder to collect chassis pose, end-effector pose,
+joint effort, and controller tracking data while driving over rough terrain:
+```bash
+cd /project/ros_ws
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch husky_gz pid_performance_record.launch.py
+```
+
+By default, the recorder launches the rough terrain simulation without RViz,
+bridges Gazebo's dynamic world poses from `/world/rough_terrain/dynamic_pose/info`,
+publishes generated PID performance poses at 20 Hz, and records the bag to:
+```bash
+/project/ros_ws/bags/pid_performance
+```
+
+The generated pose topics are:
+```text
+/pid_performance/chassis_pose
+/pid_performance/ee_pose
+/pid_performance/gazebo_dynamic_pose
+```
+
+These poses use the Gazebo world pose stream so rough-terrain `z`, roll, and
+pitch motion are preserved. `/a200_0000/platform/odom` is also recorded as a
+reference topic, but it is not used as the primary PID world-pose source.
+
+If the simulation is already running, record without launching another one:
+```bash
+ros2 launch husky_gz pid_performance_record.launch.py launch_sim:=false
+```
+
+After recording, convert the bag into CSV files:
+```bash
+ros2 run husky_gz pid_bag_to_csv /project/ros_ws/bags/<bag_name>
+```
+
+The converter writes separate CSV files next to the bag, including
+`chassis_pose.csv`, `ee_pose.csv`, `joint_efforts.csv`,
+`controller_tracking.csv`, `cmd_vel.csv`, optional `imu.csv`, and
+`metadata.json`.
+
+Override frames or topics only if the generated Clearpath names change:
+```bash
+ros2 launch husky_gz pid_performance_record.launch.py \
+  world_frame:=world \
+  chassis_frame:=base_link \
+  ee_frame:=arm_0_end_effector_link \
+  dynamic_pose_topic:=/pid_performance/gazebo_dynamic_pose \
+  tf_topic:=/a200_0000/tf \
+  tf_static_topic:=/a200_0000/tf_static
+```
+
 ## Git Workflow
 
 This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.
