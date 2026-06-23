@@ -45,16 +45,17 @@ class RRMController(Node):
 
         # ── Parameters ──────────────────────────────────────────────────────────
         self.declare_parameter('kp_cart', 8.0)      # Cartesian error gain [1/s] (~0.25s time const)
-        self.declare_parameter('ns_gain', 0.5)      # null-space pull toward q_rest
+        self.declare_parameter('ns_gain', 0.2)      # null-space pull toward q_rest
         self.declare_parameter('damping', 1e-6)     # DLS damping λ
         self.declare_parameter('ctrl_freq', 50.0)   # Hz
+        self.declare_parameter('publish_deadband', 1e-3)   # rad; below this, don't republish
         self.declare_parameter('urdf_path', '/opt/ros/humble/share/kortex_description/robots/gen3_2f85.urdf')  # generic Gen3
         self.declare_parameter('arm_base_frame', 'arm_0_base_link')
         self.declare_parameter('ee_frame', 'gen3_end_effector_link')
         self.declare_parameter('world_frame', 'odom')   # frame the target is held in
 
 
-        self.declare_parameter('publish_deadband', 1e-3)   # rad; below this, don't republish
+        
         self.publish_deadband = self.get_parameter('publish_deadband').value
         self._last_published = None
 
@@ -148,6 +149,12 @@ class RRMController(Node):
             self.theta_cmd = self.q.copy()
             self.q_cmd     = self._angles_to_config(self.q)
 
+            # one-shot FK sanity check: where does the model think the EE is?
+            pin.forwardKinematics(self.pin_model, self.pin_data, self.q_cmd)
+            pin.updateFramePlacement(self.pin_model, self.pin_data, self.ee_frame_id)
+            self.get_logger().info(
+                f'FK EE in model base: {self.pin_data.oMf[self.ee_frame_id].translation}')
+
     def _target_cb(self, msg: TrajectoryPointStamped):
         # Store the raw pose + its frame; it is re-transformed every cycle in the
         # control loop, so a world-frame target stays world-fixed while the base
@@ -216,6 +223,10 @@ class RRMController(Node):
         # Transform from current EE frame to desired EE frame (LOCAL)
         iMd = self.pin_data.oMf[self.ee_frame_id].actInv(X_des)
         err = pin.log(iMd).vector                       # 6D error twist in the EE local frame
+
+        self.get_logger().info(
+            f'|err| pos={np.linalg.norm(err[:3]):.3f}  rot={np.linalg.norm(err[3:]):.3f}',
+            throttle_duration_sec=0.5)
 
         # Position Jacobian in the EE LOCAL frame, matching the error frame
         J = pin.computeFrameJacobian(self.pin_model, self.pin_data, q,
