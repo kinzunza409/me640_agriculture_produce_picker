@@ -46,6 +46,11 @@ class PIDController(Node):
         ]
         q_ref = pin.neutral(full_model)             # gripper frozen at neutral pose
         self.pin_model = pin.buildReducedModel(full_model, locked, q_ref)
+
+        self.get_logger().info(
+            'Reduced model joints: ' +
+            str([(self.pin_model.names[i + 1], j.shortname(), j.nq, j.nv)
+                for i, j in enumerate(self.pin_model.joints[1:])]))
         self.pin_data  = self.pin_model.createData()
 
         ee_name = self.get_parameter('ee_frame').value
