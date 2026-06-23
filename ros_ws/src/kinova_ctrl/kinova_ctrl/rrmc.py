@@ -47,11 +47,16 @@ class RRMController(Node):
         self.declare_parameter('kp_cart', 8.0)      # Cartesian error gain [1/s] (~0.25s time const)
         self.declare_parameter('ns_gain', 0.5)      # null-space pull toward q_rest
         self.declare_parameter('damping', 1e-6)     # DLS damping λ
-        self.declare_parameter('ctrl_freq', 100.0)   # Hz
+        self.declare_parameter('ctrl_freq', 50.0)   # Hz
         self.declare_parameter('urdf_path', '/opt/ros/humble/share/kortex_description/robots/gen3_2f85.urdf')  # generic Gen3
         self.declare_parameter('arm_base_frame', 'arm_0_base_link')
         self.declare_parameter('ee_frame', 'gen3_end_effector_link')
         self.declare_parameter('world_frame', 'odom')   # frame the target is held in
+
+
+        self.declare_parameter('publish_deadband', 1e-3)   # rad; below this, don't republish
+        self.publish_deadband = self.get_parameter('publish_deadband').value
+        self._last_published = None
 
         # test_case: True  -> generate a fixed target in world_frame, ignore the subscriber.
         #            False -> take targets from the subscriber.
@@ -166,8 +171,11 @@ class RRMController(Node):
             self._publishing = True
 
         theta_cmd = self._resolved_rate_step(X_des)
-        controller_joint_names = [self.joint_name_map[n] for n in self.joint_names]
-        self.cmd_pub.publish(self._pack_joint_trajectory(theta_cmd, controller_joint_names))
+        if (self._last_published is None
+                or np.max(np.abs(theta_cmd - self._last_published)) >= self.publish_deadband):
+            self._last_published = theta_cmd
+            controller_joint_names = [self.joint_name_map[n] for n in self.joint_names]
+            self.cmd_pub.publish(self._pack_joint_trajectory(theta_cmd, controller_joint_names))
 
     # ── Core ──────────────────────────────────────────────────────────────────────
 
