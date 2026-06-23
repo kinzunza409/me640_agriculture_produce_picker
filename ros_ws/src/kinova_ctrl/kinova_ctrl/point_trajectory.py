@@ -8,10 +8,10 @@ class PointTrajectory(Node):
     def __init__(self):
         super().__init__('point_trajectory')
 
-        self.declare_parameter('frame_id',   'arm_0_base_link')
-        self.declare_parameter('x',           0.45)
+        self.declare_parameter('frame_id',   'odom')
+        self.declare_parameter('x',           0.3)
         self.declare_parameter('y',           0.0)
-        self.declare_parameter('z',           0.4)
+        self.declare_parameter('z',           0.8)
         self.declare_parameter('publish_hz',  5.0)
 
         hz = self.get_parameter('publish_hz').value

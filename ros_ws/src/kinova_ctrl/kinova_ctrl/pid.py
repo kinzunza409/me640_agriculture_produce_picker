@@ -117,6 +117,7 @@ class PIDController(Node):
         # Wrap pose in a PoseStamped so tf2 can transform it
         pose_stamped = PoseStamped()
         pose_stamped.header = msg.header
+        pose_stamped.header.stamp = rclpy.time.Time().to_msg()   # 0 = use latest available transform
         pose_stamped.pose   = msg.pose
 
         try:
@@ -168,7 +169,7 @@ class PIDController(Node):
         IT_MAX = 1000     # enough iterations for DLS to fully descend at DT=0.1
         DT     = 0.1      # larger values overshoot and the loop oscillates
         DAMP   = 1e-6
-        NS_GAIN = 0.5     # null-space pull toward q_rest; lower if convergence slows
+        NS_GAIN = 0.7     # null-space pull toward q_rest; lower if convergence slows
 
         # Seed from measured arm state, encoded into nq-layout (continuous joints as cos/sin)
         q = self._angles_to_config(q0)
@@ -273,7 +274,7 @@ class PIDController(Node):
         point.positions  = q_d.tolist()
         point.velocities = qdot_d.tolist()
         point.time_from_start.sec     = 0
-        point.time_from_start.nanosec = 500_000_000 # 500ms
+        point.time_from_start.nanosec = 100_000_000 # 
 
         msg.points = [point]
         return msg
