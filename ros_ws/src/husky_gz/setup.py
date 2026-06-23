@@ -50,6 +50,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'base_link_world_aligned = husky_gz.base_link_world_aligned:main',
         ],
     },
 )
