@@ -29,6 +29,7 @@ setup(
         'console_scripts': [
             'pid_controller = kinova_ctrl.pid:main',
             'point_trajectory = kinova_ctrl.point_trajectory:main',
+            'rrm_controller = kinova_ctrl.rrmc:main'
         ],
     },
 )
