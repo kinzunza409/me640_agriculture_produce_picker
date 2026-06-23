@@ -1,3 +1,6 @@
 build/
 log/
 install/
+ros_ws/bags/
+*.db3
+*.mcap
