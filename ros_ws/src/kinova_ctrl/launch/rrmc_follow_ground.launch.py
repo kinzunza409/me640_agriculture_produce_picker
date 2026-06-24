@@ -60,7 +60,7 @@ def generate_launch_description():
             'test_case': True,
             # Must match the frame name published by base_link_world_aligned.
             'world_frame': 'base_link_world_aligned',
-            'test_target_pose': [0.2, 0.8, 0.8, -0.7071, 0.0, 0.0, 0.7071]
+            'test_target_pose': [0.4, 0.0, 0.3, 0.0, 0.0, 0.0, 1.0]
         }],
         remappings=[
             ('/tf', 'tf'),

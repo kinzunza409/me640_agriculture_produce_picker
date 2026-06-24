@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import numpy as np
 import pinocchio as pin
 
@@ -38,6 +39,14 @@ class RRMController(Node):
       - Consumer is the joint_trajectory_controller TOPIC interface, position-only,
         with time_from_start = one control period so points chain instead of being
         preempted before they land.
+
+    MODEL FRAME NOTE (changed): Pinocchio is now built from the FULL integrated
+    husky+arm URDF (the same description the sim loads), so the model is ROOTED AT
+    THE HUSKY BASE, not the arm base. FK therefore returns oMf[ee] in the husky-base
+    frame, while X_des arrives in arm_0_base_link. We premultiply X_des by the
+    constant base->arm_0_base_link transform (self.oMbase) so both live in the model
+    root frame before the error is formed. That base->arm chain is all FIXED joints,
+    so oMbase is config-independent and computed once at init.
     """
 
     def __init__(self):
@@ -45,17 +54,18 @@ class RRMController(Node):
 
         # ── Parameters ──────────────────────────────────────────────────────────
         self.declare_parameter('kp_cart', 8.0)      # Cartesian error gain [1/s] (~0.25s time const)
-        self.declare_parameter('ns_gain', 0.2)      # null-space pull toward q_rest
+        self.declare_parameter('ns_gain', 0.0)      # null-space pull toward q_rest
         self.declare_parameter('damping', 1e-6)     # DLS damping λ
         self.declare_parameter('ctrl_freq', 50.0)   # Hz
         self.declare_parameter('publish_deadband', 1e-3)   # rad; below this, don't republish
-        self.declare_parameter('urdf_path', '/opt/ros/humble/share/kortex_description/robots/gen3_2f85.urdf')  # generic Gen3
+
+        # URDF: now the FULL integrated description (husky + Gen3 + gripper), expanded
+        # from Clearpath's robot.urdf.xacro. Build it in the config bash script.
+        self.declare_parameter('urdf_path', '/root/clearpath/a200_gen3_default/robot.urdf')
         self.declare_parameter('arm_base_frame', 'arm_0_base_link')
-        self.declare_parameter('ee_frame', 'gen3_end_effector_link')
+        self.declare_parameter('ee_frame', 'arm_0_end_effector_link')
         self.declare_parameter('world_frame', 'odom')   # frame the target is held in
 
-
-        
         self.publish_deadband = self.get_parameter('publish_deadband').value
         self._last_published = None
 
@@ -74,38 +84,57 @@ class RRMController(Node):
         self.test_case      = self.get_parameter('test_case').value
 
         # use_sim_time is auto-declared by rclpy; read+log so the active clock is explicit.
-        # Set it at launch (-p use_sim_time:=true) in Gazebo — the control timer uses
-        # the node clock, which follows this parameter.
         self.get_logger().info(f'use_sim_time = {self.get_parameter("use_sim_time").value}')
 
         # ── Pinocchio model ──────────────────────────────────────────────────────
-        # Full URDF includes the gripper; lock everything except the 7 arm joints so
-        # the reduced model is a clean 7-DOF arm. Joints 1,3,5,7 are continuous
-        # (JointModelRUBZ, nq=2, encoded as cos/sin); 2,4,6 are revolute (nq=1).
-        # Total nq=11, nv=7 — hence the angle<->config helpers below.
+        # Full integrated URDF includes the husky, wheels, gripper, mounts. Lock
+        # everything except the 7 arm joints so the reduced model is a clean 7-DOF
+        # arm — but still ROOTED AT THE HUSKY BASE (the URDF root link). Arm joints
+        # 1,3,5,7 are continuous (JointModelRUBZ, nq=2, cos/sin); 2,4,6 revolute
+        # (nq=1). Reduced nq=11, nv=7 — hence the angle<->config helpers below.
         urdf_path = self.get_parameter('urdf_path').value
         full_model = pin.buildModelFromUrdf(urdf_path)
 
-        arm_joints = [f'gen3_joint_{i}' for i in range(1, 8)]
+        arm_joints = [f'arm_0_joint_{i}' for i in range(1, 8)]
         locked = [
             full_model.getJointId(name)
             for name in full_model.names[1:]        # skip 'universe'
             if name not in arm_joints
         ]
-        q_ref = pin.neutral(full_model)             # gripper frozen at neutral pose
+        q_ref = pin.neutral(full_model)             # gripper + base frozen at neutral
         self.pin_model = pin.buildReducedModel(full_model, locked, q_ref)
         self.pin_data  = self.pin_model.createData()
+        self.get_logger().info(f'model joints 1..7: {[self.pin_model.names[i] for i in range(1, 8)]}')
 
         ee_name = self.get_parameter('ee_frame').value
         if not self.pin_model.existFrame(ee_name):
             raise RuntimeError(f'EE frame {ee_name!r} not in model after reduction')
         self.ee_frame_id = self.pin_model.getFrameId(ee_name)
 
+        # Constant base->arm_0_base_link placement in the model root (husky-base)
+        # frame. The chain to it is all fixed joints, so this is config-independent;
+        # compute once at neutral. Used to lift X_des (in arm_0_base_link) into the
+        # model root frame every cycle.
+        if not self.pin_model.existFrame(self.arm_base_frame):
+            raise RuntimeError(
+                f'Arm base frame {self.arm_base_frame!r} not in model after reduction')
+        arm_base_frame_id = self.pin_model.getFrameId(self.arm_base_frame)
+        q0 = pin.neutral(self.pin_model)
+        pin.forwardKinematics(self.pin_model, self.pin_data, q0)
+        pin.updateFramePlacement(self.pin_model, self.pin_data, arm_base_frame_id)
+        self.oMbase = self.pin_data.oMf[arm_base_frame_id].copy()
+        self.get_logger().info(
+            f'base->{self.arm_base_frame} translation in model root: '
+            f'{self.oMbase.translation}')
+        
+        self.get_logger().info(f'oMbase:\n{self.oMbase}')
+
         q_rest_angles = np.array([0.0, 0.26, 0.0, -2.27, 0.0, -0.96, 1.57])   # mid-range home, radians
         self.q_rest_config = self._angles_to_config(q_rest_angles)
 
-        self.joint_name_map = {f'gen3_joint_{i}': f'arm_0_joint_{i}' for i in range(1, 8)}
-        self.joint_names    = list(self.joint_name_map)
+        # Names now collapse to identity: model joints, joint_states, and the
+        # controller all use arm_0_joint_*. No remapping needed.
+        self.joint_names = list(arm_joints)
 
         # ── State ──────────────────────────────────────────────────────────────
         self.q = self.qdot = None             # measured (used ONLY to seed the command)
@@ -144,16 +173,20 @@ class RRMController(Node):
     # ── Callbacks ───────────────────────────────────────────────────────────────
 
     def _joint_state_cb(self, msg: JointState):
-        self.q, self.qdot = self._unpack_joint_state(msg, self.joint_names, self.joint_name_map)
+        self.q, self.qdot = self._unpack_joint_state(msg, self.joint_names)
+        self.get_logger().info(f'self.q = {np.round(self.q, 3)}', throttle_duration_sec=1.0)
         if self.q_cmd is None:                  # first measurement seeds the command, once
             self.theta_cmd = self.q.copy()
             self.q_cmd     = self._angles_to_config(self.q)
 
-            # one-shot FK sanity check: where does the model think the EE is?
-            pin.forwardKinematics(self.pin_model, self.pin_data, self.q_cmd)
-            pin.updateFramePlacement(self.pin_model, self.pin_data, self.ee_frame_id)
-            self.get_logger().info(
-                f'FK EE in model base: {self.pin_data.oMf[self.ee_frame_id].translation}')
+        q_meas = self._angles_to_config(self.q)
+        pin.forwardKinematics(self.pin_model, self.pin_data, q_meas)
+        pin.updateFramePlacement(self.pin_model, self.pin_data, self.ee_frame_id)
+        ee_root = self.pin_data.oMf[self.ee_frame_id]
+        ee_in_armbase = self.oMbase.actInv(ee_root)   # express model EE in arm_0_base_link
+        self.get_logger().info(
+            f'FK EE in arm_base: t={ee_in_armbase.translation}',
+            throttle_duration_sec=1.0)
 
     def _target_cb(self, msg: TrajectoryPointStamped):
         # Store the raw pose + its frame; it is re-transformed every cycle in the
@@ -170,8 +203,14 @@ class RRMController(Node):
         # Re-transform the target into the arm base frame EVERY cycle — this is the
         # base-coordination mechanism (see class docstring).
         X_des = self._target_in_base()
+
+        
         if X_des is None:
             return    # TF not ready this cycle; skip publishing
+        
+        self.get_logger().info(
+            f'X_des in {self.arm_base_frame}: t={X_des.translation}',
+            throttle_duration_sec=1.0)
 
         if not self._publishing:
             self.get_logger().info('Starting to publish joint commands')
@@ -181,8 +220,7 @@ class RRMController(Node):
         if (self._last_published is None
                 or np.max(np.abs(theta_cmd - self._last_published)) >= self.publish_deadband):
             self._last_published = theta_cmd
-            controller_joint_names = [self.joint_name_map[n] for n in self.joint_names]
-            self.cmd_pub.publish(self._pack_joint_trajectory(theta_cmd, controller_joint_names))
+            self.cmd_pub.publish(self._pack_joint_trajectory(theta_cmd, self.joint_names))
 
     # ── Core ──────────────────────────────────────────────────────────────────────
 
@@ -210,23 +248,28 @@ class RRMController(Node):
         Cartesian error, so as the EE reaches X_des the command stops moving.
 
         Frame conventions (easy to get wrong on this model):
-          - X_des is in the arm base frame (= Pinocchio model origin).
+          - X_des arrives in the ARM BASE frame (arm_0_base_link). The Pinocchio model
+            is rooted at the HUSKY BASE, so we lift X_des into the model root frame via
+            the constant self.oMbase before forming the error.
           - Error and position Jacobian are in the EE LOCAL frame; the Jlog6 term
             corrects the Jacobian for the log-map linearisation (standard CLIK form).
         """
         q = self.q_cmd
+
+        # Lift the desired pose from arm_0_base_link into the model root (husky base).
+        X_des_model = self.oMbase * X_des
 
         pin.forwardKinematics(self.pin_model, self.pin_data, q)
         # EE is a frame, not a joint, so update its placement to read oMf[ee]
         pin.updateFramePlacement(self.pin_model, self.pin_data, self.ee_frame_id)
 
         # Transform from current EE frame to desired EE frame (LOCAL)
-        iMd = self.pin_data.oMf[self.ee_frame_id].actInv(X_des)
+        iMd = self.pin_data.oMf[self.ee_frame_id].actInv(X_des_model)
         err = pin.log(iMd).vector                       # 6D error twist in the EE local frame
 
         self.get_logger().info(
-            f'|err| pos={np.linalg.norm(err[:3]):.3f}  rot={np.linalg.norm(err[3:]):.3f}',
-            throttle_duration_sec=0.5)
+            f'|err| pos={np.linalg.norm(err[:3]):.3f}  rot={np.linalg.norm(err[3:]):.3f}', throttle_duration_sec=0.5
+        )
 
         # Position Jacobian in the EE LOCAL frame, matching the error frame
         J = pin.computeFrameJacobian(self.pin_model, self.pin_data, q,
@@ -245,10 +288,17 @@ class RRMController(Node):
         # One step: primary Cartesian error reduction + secondary posture bias,
         # integrated on the manifold.
         v = Jpinv.dot(-self.KP_CART * err) + N.dot(self.NS_GAIN * dq_rest)
-        self.q_cmd = pin.integrate(self.pin_model, q, v * self.dt)
-
         self.theta_cmd = self._config_to_angles(self.q_cmd, self.theta_cmd)
-        return self.theta_cmd
+
+        # DIAGNOSTIC ONLY: wrap all joints to (-π, π] to test the winding theory.
+        # This is WRONG for joints 2/4/6 (their valid range exceeds ±π) — remove
+        # after confirming. If the arm snaps to a sane pose, it's command winding.
+        theta_wrapped = np.arctan2(np.sin(self.theta_cmd), np.cos(self.theta_cmd))
+        self.get_logger().info(
+            f'pre-wrap : {np.round(self.theta_cmd, 2)}\n'
+            f'post-wrap: {np.round(theta_wrapped, 2)}',
+            throttle_duration_sec=1.0)
+        return theta_wrapped
 
     def _angles_to_config(self, theta: np.ndarray) -> np.ndarray:
         """Map 7 joint angles into Pinocchio's nq-vector, encoding continuous
@@ -280,9 +330,8 @@ class RRMController(Node):
     # ── Helpers ───────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _unpack_joint_state(msg: JointState, joint_names: list[str], name_map: dict) -> tuple[np.ndarray, np.ndarray]:
-        remapped = [name_map.get(n, n) for n in joint_names]
-        order = [msg.name.index(n) for n in remapped]
+    def _unpack_joint_state(msg: JointState, joint_names: list[str]) -> tuple[np.ndarray, np.ndarray]:
+        order = [msg.name.index(n) for n in joint_names]
         q    = np.array([msg.position[i] for i in order])
         qdot = np.array([msg.velocity[i] for i in order]) if msg.velocity else np.zeros(len(order))
         return q, qdot
