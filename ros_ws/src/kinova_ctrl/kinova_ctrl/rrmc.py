@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import numpy as np
 import pinocchio as pin
 
@@ -55,8 +54,9 @@ class RRMController(Node):
         # ── Parameters ──────────────────────────────────────────────────────────
         self.declare_parameter('kp_cart', 8.0)      # Cartesian error gain [1/s] (~0.25s time const)
         self.declare_parameter('ns_gain', 0.0)      # null-space pull toward q_rest
-        self.declare_parameter('damping', 1e-6)     # DLS damping λ
+        self.declare_parameter('damping', 0.01)     # DLS damping term for JJ^T regularization
         self.declare_parameter('ctrl_freq', 50.0)   # Hz
+        self.declare_parameter('trajectory_time_scale', 5.0)  # trajectory point duration = scale * dt
         self.declare_parameter('publish_deadband', 1e-3)   # rad; below this, don't republish
 
         # URDF: now the FULL integrated description (husky + Gen3 + gripper), expanded
@@ -79,6 +79,9 @@ class RRMController(Node):
         self.NS_GAIN = self.get_parameter('ns_gain').value
         self.DAMP    = self.get_parameter('damping').value
         self.dt      = 1.0 / self.get_parameter('ctrl_freq').value
+        self.trajectory_time_from_start = max(
+            self.dt,
+            self.dt * float(self.get_parameter('trajectory_time_scale').value))
         self.arm_base_frame = self.get_parameter('arm_base_frame').value
         self.world_frame    = self.get_parameter('world_frame').value
         self.test_case      = self.get_parameter('test_case').value
@@ -131,6 +134,7 @@ class RRMController(Node):
 
         q_rest_angles = np.array([0.0, 0.26, 0.0, -2.27, 0.0, -0.96, 1.57])   # mid-range home, radians
         self.q_rest_config = self._angles_to_config(q_rest_angles)
+        self.angle_lower, self.angle_upper, self.continuous_joint = self._angle_limits()
 
         # Names now collapse to identity: model joints, joint_states, and the
         # controller all use arm_0_joint_*. No remapping needed.
@@ -288,17 +292,17 @@ class RRMController(Node):
         # One step: primary Cartesian error reduction + secondary posture bias,
         # integrated on the manifold.
         v = Jpinv.dot(-self.KP_CART * err) + N.dot(self.NS_GAIN * dq_rest)
-        self.theta_cmd = self._config_to_angles(self.q_cmd, self.theta_cmd)
+        self.q_cmd = pin.integrate(self.pin_model, q, v * self.dt)
 
-        # DIAGNOSTIC ONLY: wrap all joints to (-π, π] to test the winding theory.
-        # This is WRONG for joints 2/4/6 (their valid range exceeds ±π) — remove
-        # after confirming. If the arm snaps to a sane pose, it's command winding.
-        theta_wrapped = np.arctan2(np.sin(self.theta_cmd), np.cos(self.theta_cmd))
-        self.get_logger().info(
-            f'pre-wrap : {np.round(self.theta_cmd, 2)}\n'
-            f'post-wrap: {np.round(theta_wrapped, 2)}',
-            throttle_duration_sec=1.0)
-        return theta_wrapped
+        raw_theta_cmd = self._config_to_angles(self.q_cmd, self.theta_cmd)
+        self.theta_cmd = self._limit_command_angles(raw_theta_cmd)
+        if np.max(np.abs(raw_theta_cmd - self.theta_cmd)) > 1e-6:
+            self.get_logger().warn(
+                f'limited command from {np.round(raw_theta_cmd, 2)} '
+                f'to {np.round(self.theta_cmd, 2)}',
+                throttle_duration_sec=1.0)
+        self.q_cmd = self._angles_to_config(self.theta_cmd)
+        return self.theta_cmd
 
     def _angles_to_config(self, theta: np.ndarray) -> np.ndarray:
         """Map 7 joint angles into Pinocchio's nq-vector, encoding continuous
@@ -327,6 +331,29 @@ class RRMController(Node):
                 theta[j] = theta_ref[j] + np.arctan2(np.sin(a - theta_ref[j]), np.cos(a - theta_ref[j]))
         return theta
 
+    def _angle_limits(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        lower = np.full(7, -np.inf)
+        upper = np.full(7, np.inf)
+        continuous = np.zeros(7, dtype=bool)
+        for j in range(7):
+            joint = self.pin_model.joints[j + 1]
+            if joint.nq == 1:
+                lower[j] = self.pin_model.lowerPositionLimit[joint.idx_q]
+                upper[j] = self.pin_model.upperPositionLimit[joint.idx_q]
+            else:
+                continuous[j] = True
+        return lower, upper, continuous
+
+    def _limit_command_angles(self, theta: np.ndarray) -> np.ndarray:
+        theta = theta.copy()
+        theta[self.continuous_joint] = np.arctan2(
+            np.sin(theta[self.continuous_joint]),
+            np.cos(theta[self.continuous_joint]),
+        )
+        finite = np.isfinite(self.angle_lower) & np.isfinite(self.angle_upper)
+        theta[finite] = np.clip(theta[finite], self.angle_lower[finite], self.angle_upper[finite])
+        return theta
+
     # ── Helpers ───────────────────────────────────────────────────────────────────
 
     @staticmethod
@@ -346,8 +373,9 @@ class RRMController(Node):
 
         point = JointTrajectoryPoint()
         point.positions = theta_cmd.tolist()
-        point.time_from_start.sec     = 0
-        point.time_from_start.nanosec = int(self.dt * 1e9)   # 20 ms @ 50 Hz
+        duration = self.trajectory_time_from_start
+        point.time_from_start.sec = int(duration)
+        point.time_from_start.nanosec = int((duration - int(duration)) * 1e9)
 
         msg.points = [point]
         return msg

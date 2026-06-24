@@ -58,9 +58,16 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': use_sim_time,
             'test_case': True,
+            # Give Gazebo enough time to track each receding-horizon point.
+            'trajectory_time_scale': 5.0,
             # Must match the frame name published by base_link_world_aligned.
             'world_frame': 'base_link_world_aligned',
-            'test_target_pose': [0.4, 0.0, 0.3, 0.0, 0.0, 0.0, 1.0]
+            # base_link_world_aligned is pinned to the ground plane, while the
+            # Kinova base is mounted above and slightly forward of it. This
+            # target resolves to roughly [0.35, 0.0, 0.8] in arm_0_base_link,
+            # keeping the arm in a high carry posture instead of folding into
+            # the Husky body.
+            'test_target_pose': [0.43, 0.0, 1.05, 0.0, 0.0, 0.0, 1.0]
         }],
         remappings=[
             ('/tf', 'tf'),
