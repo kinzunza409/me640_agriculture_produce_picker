@@ -5,6 +5,7 @@ import time
 import rclpy
 from geometry_msgs.msg import Twist, TwistStamped
 from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 
 class StraightDriveTest(Node):
@@ -21,6 +22,8 @@ class StraightDriveTest(Node):
         self.declare_parameter('dry_run', False)
         self.declare_parameter('message_type', 'twist')
         self.declare_parameter('frame_id', 'base_link')
+        self.declare_parameter('qos_reliability', 'reliable')
+        self.declare_parameter('wait_for_subscribers', 2.0)
 
         self.cmd_vel_topic = str(self.get_parameter('cmd_vel_topic').value)
         self.speed = float(self.get_parameter('speed').value)
@@ -30,6 +33,10 @@ class StraightDriveTest(Node):
         self.dry_run = bool(self.get_parameter('dry_run').value)
         self.message_type = str(self.get_parameter('message_type').value).lower()
         self.frame_id = str(self.get_parameter('frame_id').value)
+        self.qos_reliability = str(self.get_parameter('qos_reliability').value).lower()
+        self.wait_for_subscribers = float(
+            self.get_parameter('wait_for_subscribers').value
+        )
 
         self._validate_parameters()
         self.publisher = None
@@ -37,7 +44,7 @@ class StraightDriveTest(Node):
             self.publisher = self.create_publisher(
                 self._message_class(),
                 self.cmd_vel_topic,
-                10,
+                self._qos_profile(),
             )
 
     def _validate_parameters(self):
@@ -51,6 +58,10 @@ class StraightDriveTest(Node):
             raise ValueError('ramp_time must be non-negative')
         if self.message_type not in ('twist', 'twist_stamped'):
             raise ValueError('message_type must be either twist or twist_stamped')
+        if self.qos_reliability not in ('reliable', 'best_effort'):
+            raise ValueError('qos_reliability must be reliable or best_effort')
+        if self.wait_for_subscribers < 0.0:
+            raise ValueError('wait_for_subscribers must be non-negative')
         if abs(self.speed) > 0.1:
             self.get_logger().warn(
                 'Requested speed is above the conservative 0.1 m/s first-test limit.'
@@ -60,6 +71,16 @@ class StraightDriveTest(Node):
         if self.message_type == 'twist_stamped':
             return TwistStamped
         return Twist
+
+    def _qos_profile(self):
+        reliability = ReliabilityPolicy.RELIABLE
+        if self.qos_reliability == 'best_effort':
+            reliability = ReliabilityPolicy.BEST_EFFORT
+        return QoSProfile(
+            depth=10,
+            history=HistoryPolicy.KEEP_LAST,
+            reliability=reliability,
+        )
 
     def run(self):
         period = 1.0 / self.publish_rate
@@ -71,15 +92,17 @@ class StraightDriveTest(Node):
         )
         self.get_logger().info(
             f'cmd_vel_topic={self.cmd_vel_topic}, message_type={self.message_type}, '
-            f'speed={self.speed:.3f} m/s, duration={self.duration:.3f} s, '
-            f'publish_rate={self.publish_rate:.3f} Hz, ramp_time={self.ramp_time:.3f} s, '
-            f'dry_run={self.dry_run}'
+            f'qos_reliability={self.qos_reliability}, speed={self.speed:.3f} m/s, '
+            f'duration={self.duration:.3f} s, publish_rate={self.publish_rate:.3f} Hz, '
+            f'ramp_time={self.ramp_time:.3f} s, dry_run={self.dry_run}'
         )
 
         if self.duration == 0.0:
             self.get_logger().info('Duration is zero; sending only stop commands.')
             self.publish_stop()
             return
+
+        self._wait_for_subscribers()
 
         start_time = time.monotonic()
         for _ in range(planned_messages):
@@ -99,6 +122,25 @@ class StraightDriveTest(Node):
                 time.sleep(sleep_time)
 
         self.publish_stop()
+
+    def _wait_for_subscribers(self):
+        if self.dry_run or self.wait_for_subscribers == 0.0:
+            return
+
+        deadline = time.monotonic() + self.wait_for_subscribers
+        while rclpy.ok() and time.monotonic() < deadline:
+            if self.publisher.get_subscription_count() > 0:
+                self.get_logger().info(
+                    f'Found {self.publisher.get_subscription_count()} subscriber(s) '
+                    f'on {self.cmd_vel_topic}; starting command.'
+                )
+                return
+            rclpy.spin_once(self, timeout_sec=0.1)
+
+        self.get_logger().warn(
+            f'No subscribers found on {self.cmd_vel_topic} after '
+            f'{self.wait_for_subscribers:.1f} s; publishing anyway.'
+        )
 
     def _ramp_scale(self, elapsed):
         if self.ramp_time == 0.0:
