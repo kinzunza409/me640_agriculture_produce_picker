@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     lsb-release \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Get newest version of fish
@@ -32,6 +33,9 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-teleop-twist-keyboard \
     && rm -rf /var/lib/apt/lists/*
 
+# Python3 dependencies
+RUN pip install pyshimmer --break-system-packages
+
 # ROS2 settings
 RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc
 RUN echo 'source /project/ros_ws/install/setup.bash' >> /root/.bashrc
@@ -41,7 +45,7 @@ ARG CLEARPATH_CONFIG_DIR=/tmp/clearpath_config
 COPY .devcontainer/build_clearpath_configs.sh /tmp/build_clearpath_configs.sh
 COPY ros_ws/config/clearpath $CLEARPATH_CONFIG_DIR
 RUN bash /tmp/build_clearpath_configs.sh $CLEARPATH_CONFIG_DIR
-# Misc settings for container
 
+# Misc settings for container
 COPY .devcontainer/setup.fish /tmp/setup.fish
 RUN fish /tmp/setup.fish

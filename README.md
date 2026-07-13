@@ -264,6 +264,51 @@ ros2 launch husky_gz pid_performance_record.launch.py \
   tf_static_topic:=/a200_0000/tf_static
 ```
 
+## Using the Shimmer in a dev container
+
+(Using Podman.)
+
+The Shimmer connects over Bluetooth SPP, bound to a serial device (`/dev/rfcomm0`) that's passed into the container via `--device` in `devcontainer.json`. **Every command in this section runs on the host** — pairing and binding the device happen outside the container entirely.
+
+**Note:** only the devcontainer variants labeled `bluetooth` include the `/dev/rfcomm0` passthrough — pick one of those when reopening in container if you need the Shimmer. Other variants won't have Bluetooth access.
+
+### One-time setup (host)
+
+```bash
+# Install rfcomm (Fedora splits it out separately)
+sudo dnf install bluez-deprecated   # Ubuntu: sudo apt install bluez
+
+# Pair the Shimmer
+bluetoothctl power on
+bluetoothctl agent on
+bluetoothctl --timeout 10 scan on
+bluetoothctl devices | grep -i shimmer   # note the MAC
+bluetoothctl pair <MAC>
+bluetoothctl trust <MAC>
+
+# Add yourself to dialout, then log out/in for it to take effect
+sudo usermod -aG dialout $USER
+
+# Udev rule — works around a rootless-Podman device-permission bug
+sudo tee /etc/udev/rules.d/99-shimmer-rfcomm.rules <<'EOF'
+KERNEL=="rfcomm0", MODE="0666"
+EOF
+sudo udevadm control --reload-rules
+```
+
+### Every time (host) — after a reboot, or whenever `/dev/rfcomm0` is missing
+
+rfcomm bindings don't survive a reboot, so before opening the container:
+
+```bash
+sudo rfcomm bind 0 <MAC>
+ls -l /dev/rfcomm0   # should show crw-rw-rw-
+```
+
+### Then (container)
+
+Open one of the `bluetooth`-labeled devcontainers as usual — it'll pick up `/dev/rfcomm0` automatically, no commands needed inside the container for this part.
+
 ## Git Workflow
 
 This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.
