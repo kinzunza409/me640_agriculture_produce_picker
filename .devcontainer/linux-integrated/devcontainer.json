@@ -1,5 +1,5 @@
 {
-    "name": "ROS2 Humble (Ubuntu, no GPU)",
+    "name": "ROS2 Jazzy (Ubuntu, no GPU)",
     "initializeCommand": "xhost +local: >/dev/null 2>&1 || true",
     "build": {
         "dockerfile": "../Dockerfile",

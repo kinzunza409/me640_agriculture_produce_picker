@@ -1,5 +1,5 @@
 {
-    "name": "ROS2 Humble (Windows + WSLg)",
+    "name": "ROS2 Jazzy (Windows + WSLg)",
     "build": {
         "dockerfile": "../Dockerfile",
         "context": "../.."

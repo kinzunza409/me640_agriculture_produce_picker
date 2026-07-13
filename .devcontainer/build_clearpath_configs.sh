@@ -3,7 +3,7 @@
 # Run this once (or on config changes) before launching the simulation.
 # Output lands in ~/clearpath/<config_name>/ for each yaml found.
 
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 
 CONFIG_DIR="${1:-/tmp/clearpath_config}"
 

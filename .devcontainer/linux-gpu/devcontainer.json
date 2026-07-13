@@ -1,5 +1,5 @@
 {
-    "name": "ROS2 Humble (Linux + NVIDIA, Wayland host)",
+    "name": "ROS2 Jazzy (Linux + NVIDIA, Wayland host)",
     "initializeCommand": "xhost +local: >/dev/null 2>&1 || true",
     "build": {
         "dockerfile": "../Dockerfile",

@@ -1,4 +1,4 @@
-FROM osrf/ros:humble-desktop-full
+FROM osrf/ros:jazzy-desktop-full
 
 # Install devcontainer tools
 RUN apt-get update && apt-get install -y \
@@ -26,13 +26,14 @@ RUN apt-get update && apt-get install -y software-properties-common && \
 RUN wget -qO - https://packages.osrfoundation.org/gazebo.gpg | gpg --dearmor -o /usr/share/keyrings/gazebo-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gazebo-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list 
 RUN apt-get update && apt-get install -y \
-    ignition-fortress \
-    ros-humble-clearpath-simulator \
-    ros-humble-teleop-twist-keyboard \
+    gz-harmonic \
+    ros-jazzy-ros-gz \
+    ros-jazzy-clearpath-simulator \
+    ros-jazzy-teleop-twist-keyboard \
     && rm -rf /var/lib/apt/lists/*
 
 # ROS2 settings
-RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc
+RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc
 RUN echo 'source /project/ros_ws/install/setup.bash' >> /root/.bashrc
 
 # Build robot configs for simulation
