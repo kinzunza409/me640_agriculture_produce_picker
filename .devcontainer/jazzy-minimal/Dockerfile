@@ -1,0 +1,14 @@
+FROM ros:jazzy-ros-base-noble
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    ros-jazzy-geometry-msgs \
+    ros-jazzy-rclpy \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc \
+    && echo '[ -f /project/ros_ws/install/setup.bash ] && source /project/ros_ws/install/setup.bash' >> /root/.bashrc
+
+WORKDIR /project

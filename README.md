@@ -350,3 +350,88 @@ The `.gitignore` only needs to be updated when a new kind of generated or local-
 ```
 
 The same applies to other generated content, such as Python `__pycache__/` directories or maps produced by SLAM. If git starts listing a file as a change that no one intends to commit, that file is usually a candidate for `.gitignore`.
+
+---
+
+## Jazzy Minimal Hardware Test Container
+
+This container is for lightweight Husky3 hardware smoke tests on the onboard PC.
+It intentionally does not include Gazebo, RViz, Clearpath simulation packages,
+MoveIt, Kinova packages, or GUI dependencies.
+
+The Husky3 onboard ROS graph uses Fast DDS discovery server settings. The
+container must run with host networking, host IPC, the discovery server
+environment, and UDP transport to avoid Fast DDS shared-memory lock errors.
+
+Build the image on the Husky3 onboard PC:
+```bash
+cd ~/projects/me640_agriculture_produce_picker
+docker build \
+  -f .devcontainer/jazzy-minimal/Dockerfile \
+  -t me640-jazzy-minimal:husky3 \
+  .
+```
+
+Run the container on Husky3:
+```bash
+docker run --name jazzy-husky-test --rm -it \
+  --network=host \
+  --ipc=host \
+  -e ROS_DOMAIN_ID=0 \
+  -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
+  -e ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET \
+  -e 'ROS_DISCOVERY_SERVER=127.0.0.1:11811;' \
+  -e ROS_SUPER_CLIENT=True \
+  -e FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \
+  -v "$PWD":/project \
+  -w /project \
+  me640-jazzy-minimal:husky3 \
+  bash
+```
+
+Build the hardware test package inside the container:
+```bash
+cd /project/ros_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-select husky_hardware_tests
+source install/setup.bash
+```
+
+Dry-run the node without publishing:
+```bash
+ros2 run husky_hardware_tests straight_drive_test --ros-args \
+  -p dry_run:=true \
+  -p cmd_vel_topic:=/husky3/cmd_vel \
+  -p message_type:=twist_stamped \
+  -p speed:=0.02 \
+  -p duration:=2.0
+```
+
+Husky3 accepts `geometry_msgs/msg/TwistStamped` on `/husky3/cmd_vel`; `twist_mux`
+then forwards commands to `/husky3/platform/cmd_vel`. A successful onboard test
+used:
+```bash
+ros2 run husky_hardware_tests straight_drive_test --ros-args \
+  -p cmd_vel_topic:=/husky3/cmd_vel \
+  -p message_type:=twist_stamped \
+  -p speed:=0.02 \
+  -p duration:=2.0
+```
+
+For the first real movement test, keep the wheels lifted or the area clear,
+confirm the emergency stop is released, keep someone next to the e-stop, and
+start with `speed:=0.02` and `duration:=2.0`. The node ramps up, waits briefly
+for subscribers, and publishes several zero-velocity commands before exiting.
+
+Useful verification commands on the Husky3 host:
+```bash
+ros2 topic info -v /husky3/cmd_vel
+ros2 topic info -v /husky3/platform/cmd_vel
+timeout 10 ros2 topic echo /husky3/diagnostics diagnostic_msgs/msg/DiagnosticArray
+```
+
+If topics are visible but data does not flow, check that both host and container
+use the same Fast DDS environment:
+```bash
+env | grep -E 'ROS|RMW|FAST|CYCLONE'
+```

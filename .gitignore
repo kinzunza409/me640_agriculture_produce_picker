@@ -4,3 +4,6 @@ install/
 ros_ws/bags/
 *.db3
 *.mcap
+
+__pycache__/
+*.pyc
