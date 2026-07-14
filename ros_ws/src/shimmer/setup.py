@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'shimmer_imu_node = shimmer.shimmer_imu_node:main',
         ],
     },
 )
