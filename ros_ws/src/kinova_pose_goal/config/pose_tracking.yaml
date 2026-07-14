@@ -1,0 +1,16 @@
+kinova_pose_tracker:
+  ros__parameters:
+    target_topic: /kinova/target_pose
+    twist_command_topic: /servo_node/delta_twist_cmds
+    planning_frame: base_link
+    ee_frame: end_effector_link
+    control_rate: 50.0
+    tf_timeout: 0.05
+    linear_gain: 1.0
+    angular_gain: 1.0
+    max_linear_speed: 0.03
+    max_angular_speed: 0.10
+    position_tolerance: 0.005
+    orientation_tolerance: 0.03
+    start_enabled: false
+    use_sim_time: false

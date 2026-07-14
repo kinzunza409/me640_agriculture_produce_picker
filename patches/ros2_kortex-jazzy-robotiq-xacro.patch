@@ -1,0 +1,20 @@
+diff --git a/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro b/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro
+index a39a046..617d85f 100644
+--- a/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro
++++ b/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro
+@@ -27,11 +27,9 @@
+         include_ros2_control="${include_ros2_control}"
+         com_port="${com_port}"
+         use_fake_hardware="${use_fake_hardware}"
+-        mock_sensor_commands="${fake_sensor_commands}"
+-        sim_gazebo="${sim_gazebo}"
++        fake_sensor_commands="${fake_sensor_commands}"
++        sim_ignition="${sim_gazebo}"
+         sim_isaac="${sim_isaac}"
+-        isaac_joint_commands="${isaac_joint_commands}"
+-        isaac_joint_states="${isaac_joint_states}">
++        >
+         <origin xyz="0 0 0" rpy="0 0 0" />
+     </xacro:robotiq_gripper>
+   </xacro:macro>
+ </robot>
