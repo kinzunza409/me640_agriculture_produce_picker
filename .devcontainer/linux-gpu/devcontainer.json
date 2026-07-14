@@ -22,5 +22,13 @@
         "QT_QPA_PLATFORM": "xcb"             // OGRE is GLX/X11 — force X, not Wayland
     },
     "workspaceMount": "source=${localWorkspaceFolder},target=/project,type=bind",
-    "workspaceFolder": "/project"
+    "workspaceFolder": "/project",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-vscode.cpptools"
+            ]
+        }
+    }
 }
