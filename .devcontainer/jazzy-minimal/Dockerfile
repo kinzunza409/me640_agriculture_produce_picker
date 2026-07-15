@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
+    tmux \
     ros-jazzy-geometry-msgs \
     ros-jazzy-rclpy \
     && rm -rf /var/lib/apt/lists/*
