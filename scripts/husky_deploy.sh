@@ -39,13 +39,5 @@ docker run -d \
   "$IMAGE" \
   tail -f /dev/null
 
-echo "Building ros_ws (colcon build)..."
-docker exec "$CONTAINER" bash -c '
-  set -euo pipefail
-  source /opt/ros/jazzy/setup.bash
-  cd /project/ros_ws
-  colcon build --symlink-install
-'
-
-echo "Build succeeded. Entering ${CONTAINER}..."
+echo "Entering ${CONTAINER}..."
 exec docker exec -it "$CONTAINER" bash
