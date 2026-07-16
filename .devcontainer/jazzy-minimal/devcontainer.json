@@ -8,7 +8,9 @@
     "runArgs": [
         "--hostname=ros-jazzy",
         "--network=host",
-        "--ipc=host"
+        "--ipc=host",
+        "-v",
+        "/dev:/dev"
     ],
     "containerEnv": {
         "ROS_DOMAIN_ID": "0",

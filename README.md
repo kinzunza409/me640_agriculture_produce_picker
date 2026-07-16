@@ -264,6 +264,23 @@ ros2 launch husky_gz pid_performance_record.launch.py \
   tf_static_topic:=/a200_0000/tf_static
 ```
 
+## RealSense D435i (IMU)
+
+By default, librealsense talks to the D435i through the kernel's V4L2/`uvcvideo`
+path. On this hardware, enabling the IMU (gyro/accel) over that path causes the
+camera to disconnect and re-enumerate on the USB bus, so IMU data never
+publishes — a known upstream issue (see
+[librealsense#5901](https://github.com/IntelRealSense/librealsense/issues/5901)),
+not something specific to one machine or cable. `.devcontainer/Dockerfile`
+builds librealsense and `realsense2_camera` from source with
+`-DFORCE_RSUSB_BACKEND=ON` instead of installing the stock apt packages, which
+talks to the camera over libusb directly and avoids the failing path.
+
+Test the camera + IMU:
+```bash
+ros2 launch d435i_localization imu_test.launch.py rviz:=true
+```
+
 ## Git Workflow
 
 This guide describes how contributors should collaborate on this repository. The core principle is straightforward: the `main` branch must always build and run, and all work happens on separate branches that are merged back in once they are ready.

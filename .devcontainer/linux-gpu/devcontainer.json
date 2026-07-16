@@ -13,7 +13,8 @@
         "--device", "/dev/dri",             // iGPU render node — rviz draws here
         "--security-opt", "label=disable",
         "-v", "${localEnv:XDG_RUNTIME_DIR}:${localEnv:XDG_RUNTIME_DIR}",
-        "-v", "/tmp/.X11-unix:/tmp/.X11-unix"
+        "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+        "-v", "/dev:/dev"                    // realsense needs /dev/video*+/dev/media* (V4L2 backend), not just /dev/bus/usb — node numbers aren't stable across replug/reboot
     ],
     "containerEnv": {
         "ROS_DOMAIN_ID": "0",
