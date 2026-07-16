@@ -1,0 +1,42 @@
+### Stage 1: IMU-only EKF config.
+# Fuses the madgwick-filtered D435i IMU only. No wheel odometry yet (Stage 2).
+
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: false
+    publish_tf: true
+    publish_acceleration: false
+
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    imu0: imu/data
+    # D435i is a consumer-grade MEMS IMU with no magnetometer and significant
+    # gyro drift, so its absolute orientation (roll/pitch/yaw) is NOT trusted.
+    # Linear acceleration is also disabled for now: with no odom0 to bound
+    # double-integration drift, fusing it made /odometry/filtered's position
+    # run away to hundreds of meters within seconds even at rest (observed
+    # during Stage 1 sanity testing). Revisit once Stage 2 wheel odometry
+    # can correct that drift. Only angular velocity (yaw rate, etc.) is fused.
+    imu0_config: [false, false, false,   # x,  y,  z    (position)
+                  false, false, false,   # roll, pitch, yaw (absolute orientation - NOT trusted)
+                  false, false, false,   # vx, vy, vz   (linear velocity)
+                  true,  true,  true,    # roll, pitch, yaw velocity (angular velocity - trusted)
+                  false, false, false]   # ax, ay, az   (linear acceleration - disabled for now, see above)
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true
+
+    # --- Stage 2 placeholder: wheel odometry, disabled for now ---
+    # odom0: /odometry/wheel
+    # odom0_config: [false, false, false,
+    #                false, false, false,
+    #                true,  true,  false,
+    #                false, false, true,
+    #                false, false, false]
+    # odom0_differential: false
+    # odom0_relative: false
+    # odom0_queue_size: 10
