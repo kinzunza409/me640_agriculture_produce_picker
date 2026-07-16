@@ -25,6 +25,7 @@ DEV_MOUNT="${HUSKY_DEV_MOUNT:-/dev}"
 
 echo "Building ${IMAGE} from .devcontainer/jazzy-minimal/Dockerfile..."
 docker build \
+  --progress=plain \
   -f "$REPO_ROOT/.devcontainer/jazzy-minimal/Dockerfile" \
   -t "$IMAGE" \
   "$REPO_ROOT"
