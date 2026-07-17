@@ -2,7 +2,7 @@ diff --git a/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.
 index a39a046..617d85f 100644
 --- a/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro
 +++ b/kortex_description/grippers/robotiq_2f_85/urdf/robotiq_2f_85_macro.xacro
-@@ -27,11 +27,9 @@
+@@ -27,12 +27,11 @@
          include_ros2_control="${include_ros2_control}"
          com_port="${com_port}"
          use_fake_hardware="${use_fake_hardware}"

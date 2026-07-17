@@ -61,7 +61,7 @@ def _launch_setup(context):
         parameters=[str(package_share / 'config' / 'pose_tracking.yaml')],
     )
 
-    select_twist_commands = TimerAction(
+    select_pose_commands = TimerAction(
         period=1.0,
         actions=[
             ExecuteProcess(
@@ -71,14 +71,14 @@ def _launch_setup(context):
                     'call',
                     '/servo_node/switch_command_type',
                     'moveit_msgs/srv/ServoCommandType',
-                    '{command_type: 1}',
+                    '{command_type: 2}',
                 ],
                 output='screen',
             )
         ],
     )
 
-    return [servo_node, tracker_node, select_twist_commands]
+    return [servo_node, tracker_node, select_pose_commands]
 
 
 def generate_launch_description():

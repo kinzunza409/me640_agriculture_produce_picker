@@ -1,0 +1,15 @@
+fake_target_frame:
+  ros__parameters:
+    parent_frame: base_link
+    child_frame: fake_target_frame
+    ee_frame: end_effector_link
+    target_topic: /kinova/target_pose
+    update_rate: 50.0
+    # Smooth cosine motion: 0.1 m forward in 10 s, then back in 10 s.
+    travel_distance: 0.1
+    leg_duration: 10.0
+    axis_x: 1.0
+    axis_y: 0.0
+    axis_z: 0.0
+    publish_initial_target: true
+    use_sim_time: false

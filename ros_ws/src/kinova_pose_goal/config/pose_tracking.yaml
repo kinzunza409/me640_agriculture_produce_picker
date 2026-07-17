@@ -1,16 +1,19 @@
 kinova_pose_tracker:
   ros__parameters:
     target_topic: /kinova/target_pose
-    twist_command_topic: /servo_node/delta_twist_cmds
+    pose_command_topic: /servo_node/pose_target_cmds
+    joint_state_topic: /joint_states
+    servo_status_topic: /servo_node/status
+    servo_pause_service: /servo_node/pause_servo
     planning_frame: base_link
-    ee_frame: end_effector_link
-    control_rate: 50.0
-    tf_timeout: 0.05
-    linear_gain: 1.0
-    angular_gain: 1.0
-    max_linear_speed: 0.03
-    max_angular_speed: 0.10
-    position_tolerance: 0.005
-    orientation_tolerance: 0.03
-    start_enabled: false
+    target_republish_rate: 50.0
+    tf_timeout: 0.2
+    max_translation_jump: 0.02
+    max_rotation_jump: 0.05
+    valid_samples_to_recover: 5
+    joint_state_timeout: 0.5
+    servo_status_timeout: 0.5
+    servo_status_grace_period: 1.0
+    # Must exceed MoveIt Servo's incoming_command_timeout so it can smooth-halt first.
+    servo_pause_delay: 0.3
     use_sim_time: false
