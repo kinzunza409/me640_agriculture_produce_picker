@@ -363,6 +363,42 @@ The Husky3 onboard ROS graph uses Fast DDS discovery server settings. The
 container must run with host networking, host IPC, the discovery server
 environment, and UDP transport to avoid Fast DDS shared-memory lock errors.
 
+### Quick start — getting your code on the Husky
+
+`scripts/husky_deploy.sh` automates the build/run/enter steps below: it builds
+the `jazzy-minimal` image, starts the container with the host networking, IPC,
+Fast DDS environment, and serial device passthrough the Husky3 base needs
+(`/dev/clearpath/prolific`, plus an optional `HUSKY_CAMERA_DEVICE` for a USB
+camera), mounts the repo root at `/project` the same way the other dev
+containers do, then execs an interactive `bash` shell into the running
+container. It does not run `colcon build` for you — ROS's `setup.bash` isn't
+safe under `set -u`, so build the workspace yourself once you're inside (see
+below).
+
+On your host machine — connect to the robot:
+```bash
+ssh <user>@husky3
+```
+
+On the Husky3 onboard PC (you're now in the SSH session) — get your branch and
+build/enter the container:
+```bash
+cd ~/projects/me640_agriculture_produce_picker
+git checkout <your-branch>
+git fetch && git pull
+./scripts/husky_deploy.sh
+```
+
+`husky_deploy.sh` builds the image, spins up the container with the flags
+above, and execs you into it — you end up at a shell **inside the container**
+with `/opt/ros/jazzy/setup.bash` already sourced. From there, build and run as
+shown in the manual steps below.
+
+### Manual steps
+
+The following is what `scripts/husky_deploy.sh` does under the hood, useful if
+you need to tweak flags or debug the container setup directly.
+
 Build the image on the Husky3 onboard PC:
 ```bash
 cd ~/projects/me640_agriculture_produce_picker
