@@ -1,0 +1,16 @@
+.git
+.claude
+
+ros_ws/build*
+ros_ws/install*
+ros_ws/log*
+ros_ws/bags
+ros_ws/vendor
+ros_ws/src/ros2_kortex_official
+
+**/__pycache__
+*.pyc
+*.db3
+*.mcap
+
+CLAUDE.md

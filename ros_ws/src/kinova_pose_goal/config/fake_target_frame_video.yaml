@@ -5,12 +5,12 @@ fake_target_frame:
     ee_frame: end_effector_link
     target_topic: /kinova/target_pose
     update_rate: 50.0
-    # Smooth cosine motion: 0.1 m forward in 10 s, then back in 10 s.
-    motion_pattern: line
-    # figure_eight uses a smooth closed XY path centered at the starting frame.
-    figure_eight_x_amplitude: 0.02
-    figure_eight_y_amplitude: 0.01
-    figure_eight_duration: 30.0
+    motion_pattern: figure_eight
+    # Video preset: a visible, smooth XY figure eight centered at the start pose.
+    # Peak Cartesian speed stays below the tracker's 0.03 m/s limit.
+    figure_eight_x_amplitude: 0.035
+    figure_eight_y_amplitude: 0.020
+    figure_eight_duration: 24.0
     travel_distance: 0.1
     leg_duration: 10.0
     axis_x: 1.0

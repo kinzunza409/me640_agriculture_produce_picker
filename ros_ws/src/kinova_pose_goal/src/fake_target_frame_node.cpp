@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -48,6 +49,13 @@ public:
     travel_distance_ = std::max(0.0, declare_parameter<double>("travel_distance", 0.1));
     leg_duration_ = std::max(0.1, declare_parameter<double>("leg_duration", 10.0));
     publish_initial_target_ = declare_parameter<bool>("publish_initial_target", true);
+    motion_pattern_ = declare_parameter<std::string>("motion_pattern", "line");
+    figure_eight_x_amplitude_ = std::max(
+      0.0, declare_parameter<double>("figure_eight_x_amplitude", 0.02));
+    figure_eight_y_amplitude_ = std::max(
+      0.0, declare_parameter<double>("figure_eight_y_amplitude", 0.01));
+    figure_eight_duration_ = std::max(
+      1.0, declare_parameter<double>("figure_eight_duration", 30.0));
 
     axis_x_ = declare_parameter<double>("axis_x", 1.0);
     axis_y_ = declare_parameter<double>("axis_y", 0.0);
@@ -59,6 +67,14 @@ public:
     axis_x_ /= axis_norm;
     axis_y_ /= axis_norm;
     axis_z_ /= axis_norm;
+    if (motion_pattern_ != "line" && motion_pattern_ != "figure_eight") {
+      throw std::runtime_error("motion_pattern must be 'line' or 'figure_eight'");
+    }
+    if (motion_pattern_ == "figure_eight" &&
+      figure_eight_x_amplitude_ < 1.0e-9 && figure_eight_y_amplitude_ < 1.0e-9)
+    {
+      throw std::runtime_error("figure-eight amplitudes cannot both be zero");
+    }
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
@@ -75,11 +91,20 @@ public:
       std::bind(&FakeTargetFrameNode::update, this));
     last_update_ = SteadyClock::now();
 
-    RCLCPP_INFO(
-      get_logger(),
-      "Fake target '%s' starts stationary in '%s'; %.3f m cosine round trip over %.1f s; "
-      "call ~/set_moving to start",
-      child_frame_.c_str(), parent_frame_.c_str(), travel_distance_, 2.0 * leg_duration_);
+    if (motion_pattern_ == "figure_eight") {
+      RCLCPP_INFO(
+        get_logger(),
+        "Fake target '%s' starts stationary in '%s'; XY figure eight amplitudes "
+        "[%.3f, %.3f] m over %.1f s; call ~/set_moving to start",
+        child_frame_.c_str(), parent_frame_.c_str(), figure_eight_x_amplitude_,
+        figure_eight_y_amplitude_, figure_eight_duration_);
+    } else {
+      RCLCPP_INFO(
+        get_logger(),
+        "Fake target '%s' starts stationary in '%s'; %.3f m cosine round trip over %.1f s; "
+        "call ~/set_moving to start",
+        child_frame_.c_str(), parent_frame_.c_str(), travel_distance_, 2.0 * leg_duration_);
+    }
   }
 
 private:
@@ -93,7 +118,7 @@ private:
       return;
     }
 
-    if (request->data && elapsed_motion_ >= 2.0 * leg_duration_) {
+    if (request->data && elapsed_motion_ >= motion_duration()) {
       elapsed_motion_ = 0.0;
     }
     moving_ = request->data;
@@ -109,21 +134,21 @@ private:
     const double dt = std::chrono::duration<double>(current_time - last_update_).count();
     last_update_ = current_time;
     if (moving_) {
-      elapsed_motion_ = std::min(elapsed_motion_ + dt, 2.0 * leg_duration_);
-      if (elapsed_motion_ >= 2.0 * leg_duration_) {
+      elapsed_motion_ = std::min(elapsed_motion_ + dt, motion_duration());
+      if (elapsed_motion_ >= motion_duration()) {
         moving_ = false;
-        RCLCPP_INFO(get_logger(), "Fake target completed one round trip and stopped");
+        RCLCPP_INFO(get_logger(), "Fake target completed its motion and stopped");
       }
     }
 
-    const double offset = motion_offset(elapsed_motion_);
+    const auto translation = motion_translation(elapsed_motion_);
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = now();
     transform.header.frame_id = parent_frame_;
     transform.child_frame_id = child_frame_;
-    transform.transform.translation.x = axis_x_ * offset;
-    transform.transform.translation.y = axis_y_ * offset;
-    transform.transform.translation.z = axis_z_ * offset;
+    transform.transform.translation.x = translation[0];
+    transform.transform.translation.y = translation[1];
+    transform.transform.translation.z = translation[2];
     transform.transform.rotation.w = 1.0;
     tf_broadcaster_->sendTransform(transform);
 
@@ -132,7 +157,29 @@ private:
     }
   }
 
-  double motion_offset(double elapsed) const
+  double motion_duration() const
+  {
+    return motion_pattern_ == "figure_eight" ? figure_eight_duration_ : 2.0 * leg_duration_;
+  }
+
+  std::array<double, 3> motion_translation(double elapsed) const
+  {
+    if (motion_pattern_ == "figure_eight") {
+      const double u = std::clamp(elapsed / figure_eight_duration_, 0.0, 1.0);
+      // Quintic time scaling makes velocity and acceleration zero at both ends.
+      const double phase_fraction = u * u * u * (10.0 + u * (-15.0 + 6.0 * u));
+      const double phase = 2.0 * kPi * phase_fraction;
+      return {
+        figure_eight_x_amplitude_ * std::sin(phase),
+        figure_eight_y_amplitude_ * std::sin(2.0 * phase),
+        0.0};
+    }
+
+    const double offset = line_motion_offset(elapsed);
+    return {axis_x_ * offset, axis_y_ * offset, axis_z_ * offset};
+  }
+
+  double line_motion_offset(double elapsed) const
   {
     if (elapsed <= leg_duration_) {
       return 0.5 * travel_distance_ * (1.0 - std::cos(kPi * elapsed / leg_duration_));
@@ -177,6 +224,10 @@ private:
   std::string child_frame_;
   std::string ee_frame_;
   std::string target_topic_;
+  std::string motion_pattern_;
+  double figure_eight_x_amplitude_;
+  double figure_eight_y_amplitude_;
+  double figure_eight_duration_;
   double update_rate_;
   double travel_distance_;
   double leg_duration_;

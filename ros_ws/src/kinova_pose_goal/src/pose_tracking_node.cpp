@@ -17,6 +17,7 @@
 #include <std_srvs/srv/set_bool.hpp>
 #include <tf2/exceptions.hpp>
 #include <tf2/time.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 
@@ -313,8 +314,15 @@ private:
       return;
     }
 
-    auto command = *target_;
+    geometry_msgs::msg::PoseStamped command;
+    try {
+      tf2::doTransform(*target_, command, *last_target_transform_);
+    } catch (const tf2::TransformException & error) {
+      latch_fault(std::string("failed to transform target pose: ") + error.what());
+      return;
+    }
     command.header.stamp = now();
+    command.header.frame_id = planning_frame_;
     pose_publisher_->publish(command);
   }
 
